@@ -1466,6 +1466,7 @@ void ValidationStateTracker::PostCallRecordCreateImage(VkDevice device, const Vk
     }
     const auto swapchain_info = lvl_find_in_chain<VkImageSwapchainCreateInfoKHR>(pCreateInfo->pNext);
     if (swapchain_info) {
+        is_node->binding.mem = MEMTRACKER_SWAP_CHAIN_IMAGE_KEY;
         is_node->create_from_swapchain = swapchain_info->swapchain;
     }
     imageMap.insert(std::make_pair(*pImage, std::unique_ptr<IMAGE_STATE>(is_node)));

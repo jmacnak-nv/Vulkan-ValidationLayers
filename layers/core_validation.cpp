@@ -109,12 +109,6 @@ using std::unordered_map;
 using std::unordered_set;
 using std::vector;
 
-// WSI Image Objects bypass usual Image Object creation methods.  A special Memory
-// Object value will be used to identify them internally.
-static const VkDeviceMemory MEMTRACKER_SWAP_CHAIN_IMAGE_KEY = (VkDeviceMemory)(-1);
-// 2nd special memory handle used to flag object as unbound from memory
-static const VkDeviceMemory MEMORY_UNBOUND = VkDeviceMemory(~((uint64_t)(0)) - 1);
-
 // Get the global map of pending releases
 GlobalQFOTransferBarrierMap<VkImageMemoryBarrier> &CoreChecks::GetGlobalQFOReleaseBarrierMap(
     const QFOTransferBarrier<VkImageMemoryBarrier>::Tag &type_tag) {
@@ -11551,6 +11545,7 @@ void CoreChecks::PostCallRecordGetSwapchainImagesKHR(VkDevice device, VkSwapchai
             image_layout_node.format = swapchain_state->createInfo.imageFormat;
             // Add imageMap entries for each swapchain image
             VkImageCreateInfo image_ci = {};
+            image_ci.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
             image_ci.flags = 0;
             image_ci.imageType = VK_IMAGE_TYPE_2D;
             image_ci.format = swapchain_state->createInfo.imageFormat;
@@ -11567,6 +11562,9 @@ void CoreChecks::PostCallRecordGetSwapchainImagesKHR(VkDevice device, VkSwapchai
             auto &image_state = imageMap[pSwapchainImages[i]];
             image_state->valid = false;
             image_state->binding.mem = MEMTRACKER_SWAP_CHAIN_IMAGE_KEY;
+            image_state->create_from_swapchain = swapchain;
+            image_state->bind_swapchain = swapchain;
+            image_state->bind_swapchain_imageIndex = i;
             swapchain_state->images[i] = pSwapchainImages[i];
             ImageSubresourcePair subpair = {pSwapchainImages[i], false, VkImageSubresource()};
             imageSubresourceMap[pSwapchainImages[i]].push_back(subpair);
