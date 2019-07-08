@@ -101,6 +101,40 @@ IMAGE_STATE::IMAGE_STATE(VkImage img, const VkImageCreateInfo *pCreateInfo)
 #endif  // VK_USE_PLATFORM_ANDROID_KHR
 }
 
+bool IMAGE_STATE::IsAliasing(IMAGE_STATE *image_state) {
+    if (!image_state || !(createInfo.flags & VK_IMAGE_CREATE_ALIAS_BIT) ||
+        !(image_state->createInfo.flags & VK_IMAGE_CREATE_ALIAS_BIT))
+        return false;
+    if (image_state->create_from_swapchain) {
+        if (create_from_swapchain == image_state->create_from_swapchain) {
+            return true;
+        }
+    } else if (create_from_swapchain == VK_NULL_HANDLE) {
+        if ((binding.mem == image_state->binding.mem) && (createInfo.sType == image_state->createInfo.sType) &&
+            (createInfo.flags == image_state->createInfo.flags) && (createInfo.imageType == image_state->createInfo.imageType) &&
+            (createInfo.format == image_state->createInfo.format) && (createInfo.mipLevels == image_state->createInfo.mipLevels) &&
+            (createInfo.arrayLayers == image_state->createInfo.arrayLayers) &&
+            (createInfo.samples == image_state->createInfo.samples) && (createInfo.tiling == image_state->createInfo.tiling) &&
+            (createInfo.usage == image_state->createInfo.usage) &&
+            (createInfo.sharingMode == image_state->createInfo.sharingMode) &&
+            (createInfo.queueFamilyIndexCount == image_state->createInfo.queueFamilyIndexCount) &&
+            (createInfo.initialLayout == image_state->createInfo.initialLayout) &&
+            (createInfo.extent.width == image_state->createInfo.extent.width) &&
+            (createInfo.extent.height == image_state->createInfo.extent.height) &&
+            (createInfo.extent.depth == image_state->createInfo.extent.depth)) {
+            if (createInfo.queueFamilyIndexCount > 0) {
+                for (uint32_t i = 0; i < createInfo.queueFamilyIndexCount; ++i) {
+                    if (createInfo.pQueueFamilyIndices[i] != image_state->createInfo.pQueueFamilyIndices[i]) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+    }
+    return false;
+}
+
 IMAGE_VIEW_STATE::IMAGE_VIEW_STATE(const IMAGE_STATE *image_state, VkImageView iv, const VkImageViewCreateInfo *ci)
     : image_view(iv), create_info(*ci), normalized_subresource_range(ci->subresourceRange), samplerConversion(VK_NULL_HANDLE) {
     auto *conversionInfo = lvl_find_in_chain<VkSamplerYcbcrConversionInfo>(create_info.pNext);
@@ -1507,6 +1541,16 @@ void ValidationStateTracker::PreCallRecordDestroyImage(VkDevice device, VkImage 
         auto mem_info = GetDevMemState(mem_binding);
         if (mem_info) {
             RemoveImageMemoryRange(obj_struct.handle, mem_info);
+            if (image_state->createInfo.flags & VK_IMAGE_CREATE_ALIAS_BIT) {
+                mem_info->aliasing_images.erase(image);
+            }
+        }
+    }
+
+    if (image_state->create_from_swapchain != VK_NULL_HANDLE && image_state->createInfo.flags & VK_IMAGE_CREATE_ALIAS_BIT) {
+        auto swapchain_state = GetSwapchainState(image_state->create_from_swapchain);
+        if (swapchain_state) {
+            swapchain_state->aliasing_images.erase(image);
         }
     }
     ClearMemoryObjectBindings(obj_struct);

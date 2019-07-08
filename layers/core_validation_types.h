@@ -314,6 +314,8 @@ class IMAGE_STATE : public BINDABLE {
     IMAGE_STATE(VkImage img, const VkImageCreateInfo *pCreateInfo);
     IMAGE_STATE(IMAGE_STATE const &rh_obj) = delete;
 
+    bool IsAliasing(IMAGE_STATE *image_state);
+
     ~IMAGE_STATE() {
         if ((createInfo.sharingMode == VK_SHARING_MODE_CONCURRENT) && (createInfo.queueFamilyIndexCount > 0)) {
             delete[] createInfo.pQueueFamilyIndices;
@@ -372,6 +374,7 @@ struct DEVICE_MEMORY_STATE : public BASE_NODE {
     // Convenience vectors image/buff handles to speed up iterating over images or buffers independently
     std::unordered_set<uint64_t> bound_images;
     std::unordered_set<uint64_t> bound_buffers;
+    std::unordered_set<VkImage> aliasing_images;
 
     MemRange mem_range;
     void *shadow_copy_base;    // Base of layer's allocation for guard band, data, and alignment space
@@ -401,6 +404,7 @@ class SWAPCHAIN_NODE {
     safe_VkSwapchainCreateInfoKHR createInfo;
     VkSwapchainKHR swapchain;
     std::vector<VkImage> images;
+    std::unordered_set<VkImage> aliasing_images;
     bool retired = false;
     bool shared_presentable = false;
     CALL_STATE vkGetSwapchainImagesKHRState = UNCALLED;

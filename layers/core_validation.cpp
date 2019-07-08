@@ -10615,12 +10615,21 @@ void CoreChecks::UpdateBindImageMemoryState(const VkBindImageMemoryInfo &bindInf
         if (swapchain_info) {
             image_state->bind_swapchain = swapchain_info->swapchain;
             image_state->bind_swapchain_imageIndex = swapchain_info->imageIndex;
+            if (image_state->createInfo.flags & VK_IMAGE_CREATE_ALIAS_BIT) {
+                auto swapchain_state = GetSwapchainState(swapchain_info->swapchain);
+                if (swapchain_state) {
+                    swapchain_state->aliasing_images.insert(bindInfo.image);
+                }
+            }
         } else {
             // Track bound memory range information
             auto mem_info = GetDevMemState(bindInfo.memory);
             if (mem_info) {
                 InsertImageMemoryRange(bindInfo.image, mem_info, bindInfo.memoryOffset, image_state->requirements,
                                        image_state->createInfo.tiling == VK_IMAGE_TILING_LINEAR);
+                if (image_state->createInfo.flags & VK_IMAGE_CREATE_ALIAS_BIT) {
+                    mem_info->aliasing_images.insert(bindInfo.image);
+                }
             }
 
             // Track objects tied to memory
@@ -11546,7 +11555,7 @@ void CoreChecks::PostCallRecordGetSwapchainImagesKHR(VkDevice device, VkSwapchai
             // Add imageMap entries for each swapchain image
             VkImageCreateInfo image_ci = {};
             image_ci.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-            image_ci.flags = 0;
+            image_ci.flags = VK_IMAGE_CREATE_ALIAS_BIT;
             image_ci.imageType = VK_IMAGE_TYPE_2D;
             image_ci.format = swapchain_state->createInfo.imageFormat;
             image_ci.extent.width = swapchain_state->createInfo.imageExtent.width;
@@ -11566,6 +11575,7 @@ void CoreChecks::PostCallRecordGetSwapchainImagesKHR(VkDevice device, VkSwapchai
             image_state->bind_swapchain = swapchain;
             image_state->bind_swapchain_imageIndex = i;
             swapchain_state->images[i] = pSwapchainImages[i];
+            swapchain_state->aliasing_images.insert(pSwapchainImages[i]);
             ImageSubresourcePair subpair = {pSwapchainImages[i], false, VkImageSubresource()};
             imageSubresourceMap[pSwapchainImages[i]].push_back(subpair);
             imageLayoutMap[subpair] = image_layout_node;
