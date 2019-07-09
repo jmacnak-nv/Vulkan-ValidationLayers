@@ -473,6 +473,7 @@ class CoreChecks : public ValidationStateTracker {
     bool external_sync_warning = false;
     std::unique_ptr<GpuValidationState> gpu_validation_state;
 
+    std::vector<IMAGE_STATE*> GetAliasingImageStates(IMAGE_STATE* image_state);
     bool VerifyQueueStateToSeq(QUEUE_STATE* initial_queue, uint64_t initial_seq);
     void ClearCmdBufAndMemReferences(CMD_BUFFER_STATE* cb_node);
     void ResetCommandBufferState(const VkCommandBuffer cb);

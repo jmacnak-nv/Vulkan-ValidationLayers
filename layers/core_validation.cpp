@@ -13031,3 +13031,39 @@ bool CoreChecks::ValidateCmdDrawStrideWithBuffer(VkCommandBuffer commandBuffer, 
     }
     return skip;
 }
+
+std::vector<IMAGE_STATE *> CoreChecks::GetAliasingImageStates(IMAGE_STATE *image_state) {
+    std::vector<IMAGE_STATE *> image_states;
+    if (!image_state) return image_states;
+
+    image_states.emplace_back(image_state);
+
+    if (image_state->createInfo.flags & VK_IMAGE_CREATE_ALIAS_BIT) {
+        std::unordered_set<VkImage> *pImages = nullptr;
+        if (image_state->bind_swapchain) {
+            auto swapchain_state = GetSwapchainState(image_state->bind_swapchain);
+            if (swapchain_state) {
+                pImages = &swapchain_state->aliasing_images;
+            }
+        } else if (image_state->binding.mem) {
+            auto mem_state = GetDevMemState(image_state->binding.mem);
+            if (mem_state) {
+                pImages = &mem_state->aliasing_images;
+            }
+        }
+
+        if (pImages) {
+            std::unordered_set<VkImage>::iterator it = pImages->begin();
+            while (it != pImages->end()) {
+                if (*it != image_state->image) {
+                    auto is = GetImageState(*it);
+                    if (is && is->IsAliasing(image_state)) {
+                        image_states.emplace_back(is);
+                    }
+                }
+                ++it;
+            }
+        }
+    }
+    return image_states;
+}
